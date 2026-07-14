@@ -11,7 +11,7 @@ RUN pnpm install --no-frozen-lockfile --ignore-scripts
 
 FROM deps AS build
 RUN pnpm --filter @workspace/api-server exec prisma generate --schema=prisma/schema.prisma
-RUN pnpm --filter @workspace/api-server exec esbuild src/queues/worker.ts --bundle --platform=node --format=esm --outfile=dist-worker/worker.mjs --external:@prisma/client --external:ioredis --external:bullmq
+RUN pnpm --filter @workspace/api-server exec esbuild src/queues/worker.ts --bundle --platform=node --format=esm --outfile=dist-worker/worker.mjs --external:@prisma/client
 
 FROM node:24-slim AS runtime
 ENV NODE_ENV=production

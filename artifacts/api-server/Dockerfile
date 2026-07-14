@@ -15,7 +15,7 @@ RUN pnpm --filter @workspace/api-server run build
 FROM base AS runtime-deps
 COPY pnpm-workspace.yaml package.json .npmrc ./
 COPY artifacts/api-server/package.json ./artifacts/api-server/package.json
-RUN pnpm install --prod --no-frozen-lockfile --ignore-scripts
+RUN pnpm install --prod --no-frozen-lockfile
 
 FROM node:24-slim AS runtime
 ENV NODE_ENV=production
@@ -23,7 +23,7 @@ WORKDIR /app
 COPY --from=build /repo/artifacts/api-server/dist ./dist
 COPY --from=build /repo/artifacts/api-server/prisma ./prisma
 COPY --from=runtime-deps /repo/node_modules ./node_modules
-RUN node node_modules/prisma generate --schema=prisma/schema.prisma
+COPY --from=build /repo/node_modules/.prisma ./node_modules/.prisma
 USER node
 EXPOSE 8082
 HEALTHCHECK --interval=30s --timeout=5s --start-period=15s --retries=3 \

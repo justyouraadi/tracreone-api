@@ -10,4 +10,4 @@ RUN pnpm --filter @workspace/api-server exec prisma generate --schema=prisma/sch
 RUN pnpm --filter @workspace/api-server exec esbuild src/queues/worker.ts --bundle --platform=node --format=esm --outfile=dist/worker.mjs --external:@prisma/client
 
 ENV NODE_ENV=production
-CMD ["node", "dist/worker.mjs"]
+CMD ["node", "artifacts/api-server/dist/worker.mjs"]

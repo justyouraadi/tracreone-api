@@ -6,8 +6,7 @@ WORKDIR /repo
 FROM base AS deps
 COPY pnpm-workspace.yaml package.json pnpm-lock.yaml* ./
 COPY artifacts/api-server ./artifacts/api-server
-RUN echo '{"@prisma/client":"*","@prisma/engines":"*","prisma":"*","esbuild":"*","msgpackr-extract":"*","@scarf/scarf":"*"}' > .pnpm-approved-builds.json
-RUN pnpm install --no-frozen-lockfile
+RUN pnpm install --no-frozen-lockfile --ignore-scripts
 
 FROM deps AS build
 RUN pnpm --filter @workspace/api-server exec prisma generate --schema=prisma/schema.prisma

@@ -1,0 +1,595 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model landing_pages {
+  id               Int      @id @default(autoincrement())
+  propertyname     String?  @db.VarChar(255)
+  propertylocation String?  @db.VarChar(255)
+  budget           String?  @db.VarChar(255)
+  description      String?
+  amenities        String?
+  imageurl         String?
+  logourl          String?
+  createdat        BigInt?
+  slug             String?  @db.VarChar(255)
+  themename        String?  @db.VarChar(255)
+  fontpairing      String?  @db.VarChar(255)
+  herotitle        String?
+  herosubtitle     String?
+  showtestimonials Boolean?
+  showfaqs         Boolean?
+  showpricing      Boolean?
+  testimonialsjson String?
+  faqsjson         String?
+  pricingplansjson String?
+  ctatitle         String?
+  ctasubtitle      String?
+  customdomain     String?  @db.VarChar(255)
+  sectionorder     String?
+
+  // --- New nullable columns added for multi-tenant management ---
+  companyId     Int?      @map("company_id")
+  createdBy     Int?      @map("created_by")
+  isPublished   Boolean?  @default(false) @map("is_published")
+  publishedAt   DateTime? @map("published_at")
+  updatedAtMeta DateTime? @updatedAt @map("updated_at_meta")
+
+  company   Company?   @relation(fields: [companyId], references: [id], onDelete: SetNull)
+  campaigns Campaign[]
+  leads     leads[]    @relation("LeadLandingPage")
+
+  @@index([companyId])
+}
+
+model leads {
+  id                  Int      @id @default(autoincrement())
+  name                String?  @db.VarChar(255)
+  phone               String?  @db.VarChar(255)
+  propertyinterest    String?  @db.VarChar(255)
+  budget              String?  @db.VarChar(255)
+  status              String?  @db.VarChar(255)
+  notes               String?
+  timestamp           BigInt?
+  source              String?  @db.VarChar(255)
+  whatsappsent        Boolean?
+  lastwhatsappmessage String?
+  whatsappstatus      String?  @db.VarChar(255)
+
+  // --- New nullable columns added for auth/multi-tenant support ---
+  // Existing rows keep these NULL until explicitly assigned. Never made required.
+  companyId     Int? @map("company_id")
+  ownerId       Int? @map("owner_id")
+  assignedTo    Int? @map("assigned_to")
+  createdBy     Int? @map("created_by")
+  updatedBy     Int? @map("updated_by")
+  stageId       Int? @map("stage_id")
+  leadSourceId  Int? @map("lead_source_id")
+  campaignId    Int? @map("campaign_id")
+  landingPageId Int? @map("landing_page_id")
+
+  company     Company?       @relation(fields: [companyId], references: [id], onDelete: SetNull)
+  owner       User?          @relation("LeadOwner", fields: [ownerId], references: [id], onDelete: SetNull)
+  assignee    User?          @relation("LeadAssignee", fields: [assignedTo], references: [id], onDelete: SetNull)
+  creator     User?          @relation("LeadCreator", fields: [createdBy], references: [id], onDelete: SetNull)
+  updater     User?          @relation("LeadUpdater", fields: [updatedBy], references: [id], onDelete: SetNull)
+  stage       PipelineStage? @relation(fields: [stageId], references: [id], onDelete: SetNull)
+  leadSource  LeadSource?    @relation(fields: [leadSourceId], references: [id], onDelete: SetNull)
+  campaign    Campaign?      @relation(fields: [campaignId], references: [id], onDelete: SetNull)
+  landingPage landing_pages? @relation("LeadLandingPage", fields: [landingPageId], references: [id], onDelete: SetNull)
+
+  leadNotes         LeadNote[]
+  leadTags          LeadTag[]
+  followUps         FollowUp[]
+  customFieldValues CustomFieldValue[]
+  fileAssets        FileAsset[]
+
+  @@index([companyId])
+  @@index([ownerId])
+  @@index([companyId, status])
+  @@index([leadSourceId])
+  @@index([campaignId])
+  @@index([assignedTo])
+  @@index([stageId])
+  @@index([landingPageId])
+}
+
+// ============================================================
+// New tables — additive only, do not touch the tables above.
+// ============================================================
+
+model Company {
+  id        Int      @id @default(autoincrement())
+  name      String
+  slug      String   @unique
+  isActive  Boolean  @default(true) @map("is_active")
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  users           User[]
+  leads           leads[]
+  pipelineStages  PipelineStage[]
+  tags            Tag[]
+  followUps       FollowUp[]
+  activityLogs    ActivityLog[]
+  landingPages    landing_pages[]
+  campaigns       Campaign[]
+  notifications   Notification[]
+  settings        Setting[]
+  customFields    CustomField[]
+  leadSources     LeadSource[]
+  leadStatuses    LeadStatus[]
+  fileAssets      FileAsset[]
+  rolePermissions RolePermission[]
+  providerConfigs ProviderConfig[]
+
+  @@map("companies")
+}
+
+model User {
+  id           Int       @id @default(autoincrement())
+  companyId    Int?      @map("company_id")
+  name         String
+  email        String    @unique
+  phone        String?
+  passwordHash String?   @map("password_hash")
+  googleId     String?   @unique @map("google_id")
+  role         String    @default("agent")
+  isActive     Boolean   @default(true) @map("is_active")
+  lastLoginAt  DateTime? @map("last_login_at")
+  avatarUrl    String?   @map("avatar_url")
+  timezone     String?   @default("Asia/Kolkata")
+  bio          String?
+  createdAt    DateTime  @default(now()) @map("created_at")
+  updatedAt    DateTime  @updatedAt @map("updated_at")
+
+  company Company? @relation(fields: [companyId], references: [id], onDelete: SetNull)
+
+  ownedLeads    leads[]        @relation("LeadOwner")
+  assignedLeads leads[]        @relation("LeadAssignee")
+  createdLeads  leads[]        @relation("LeadCreator")
+  updatedLeads  leads[]        @relation("LeadUpdater")
+  leadNotes     LeadNote[]
+  followUps     FollowUp[]
+  refreshTokens RefreshToken[]
+  activityLogs  ActivityLog[]
+  notifications Notification[]
+  fileAssets    FileAsset[]
+
+  @@index([companyId])
+  @@map("users")
+}
+
+model RefreshToken {
+  id        Int      @id @default(autoincrement())
+  userId    Int      @map("user_id")
+  tokenHash String   @unique @map("token_hash")
+  revoked   Boolean  @default(false)
+  expiresAt DateTime @map("expires_at")
+  createdAt DateTime @default(now()) @map("created_at")
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@map("refresh_tokens")
+}
+
+model OtpCode {
+  id        Int      @id @default(autoincrement())
+  phone     String
+  codeHash  String   @map("code_hash")
+  consumed  Boolean  @default(false)
+  attempts  Int      @default(0)
+  expiresAt DateTime @map("expires_at")
+  createdAt DateTime @default(now()) @map("created_at")
+
+  @@index([phone, consumed])
+  @@map("otp_codes")
+}
+
+model PipelineStage {
+  id        Int      @id @default(autoincrement())
+  companyId Int      @map("company_id")
+  name      String
+  order     Int      @default(0)
+  isWon     Boolean  @default(false) @map("is_won")
+  isLost    Boolean  @default(false) @map("is_lost")
+  color     String?
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  company Company @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  leads   leads[]
+
+  @@index([companyId])
+  @@map("pipeline_stages")
+}
+
+model Tag {
+  id        Int      @id @default(autoincrement())
+  companyId Int      @map("company_id")
+  name      String
+  color     String?
+  createdAt DateTime @default(now()) @map("created_at")
+
+  company  Company   @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  leadTags LeadTag[]
+
+  @@unique([companyId, name])
+  @@map("tags")
+}
+
+model LeadTag {
+  id     Int @id @default(autoincrement())
+  leadId Int @map("lead_id")
+  tagId  Int @map("tag_id")
+
+  lead leads @relation(fields: [leadId], references: [id], onDelete: Cascade)
+  tag  Tag   @relation(fields: [tagId], references: [id], onDelete: Cascade)
+
+  @@unique([leadId, tagId])
+  @@map("lead_tags")
+}
+
+model LeadNote {
+  id        Int      @id @default(autoincrement())
+  leadId    Int      @map("lead_id")
+  userId    Int?     @map("user_id")
+  content   String
+  createdAt DateTime @default(now()) @map("created_at")
+
+  lead   leads @relation(fields: [leadId], references: [id], onDelete: Cascade)
+  author User? @relation(fields: [userId], references: [id], onDelete: SetNull)
+
+  @@index([leadId])
+  @@map("lead_notes")
+}
+
+model FollowUp {
+  id             Int       @id @default(autoincrement())
+  leadId         Int       @map("lead_id")
+  companyId      Int?      @map("company_id")
+  assignedToId   Int?      @map("assigned_to_id")
+  type           String    @default("manual")
+  dueAt          DateTime  @map("due_at")
+  status         String    @default("pending")
+  recurrenceRule String?   @map("recurrence_rule")
+  notes          String?
+  completedAt    DateTime? @map("completed_at")
+  createdAt      DateTime  @default(now()) @map("created_at")
+  updatedAt      DateTime  @updatedAt @map("updated_at")
+
+  lead       leads    @relation(fields: [leadId], references: [id], onDelete: Cascade)
+  company    Company? @relation(fields: [companyId], references: [id], onDelete: SetNull)
+  assignedTo User?    @relation(fields: [assignedToId], references: [id], onDelete: SetNull)
+
+  @@index([leadId])
+  @@index([companyId, status])
+  @@map("follow_ups")
+}
+
+model ActivityLog {
+  id        Int      @id @default(autoincrement())
+  companyId Int?     @map("company_id")
+  userId    Int?     @map("user_id")
+  leadId    Int?     @map("lead_id")
+  action    String
+  metadata  Json?
+  createdAt DateTime @default(now()) @map("created_at")
+
+  company Company? @relation(fields: [companyId], references: [id], onDelete: SetNull)
+  user    User?    @relation(fields: [userId], references: [id], onDelete: SetNull)
+
+  @@index([companyId])
+  @@index([leadId])
+  @@index([createdAt])
+  @@map("activity_logs")
+}
+
+// ============================================================
+// Custom fields — company-defined extra data captured on leads.
+// ============================================================
+
+model CustomField {
+  id         Int      @id @default(autoincrement())
+  companyId  Int      @map("company_id")
+  entityType String   @default("lead") @map("entity_type")
+  name       String
+  label      String
+  fieldType  String   @map("field_type") // text | number | boolean | date | select | multiselect
+  options    Json?
+  isRequired Boolean  @default(false) @map("is_required")
+  order      Int      @default(0)
+  isActive   Boolean  @default(true) @map("is_active")
+  createdAt  DateTime @default(now()) @map("created_at")
+  updatedAt  DateTime @updatedAt @map("updated_at")
+
+  company Company            @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  values  CustomFieldValue[]
+
+  @@unique([companyId, entityType, name])
+  @@index([companyId])
+  @@map("custom_fields")
+}
+
+model CustomFieldValue {
+  id            Int      @id @default(autoincrement())
+  customFieldId Int      @map("custom_field_id")
+  leadId        Int      @map("lead_id")
+  value         String?
+  createdAt     DateTime @default(now()) @map("created_at")
+  updatedAt     DateTime @updatedAt @map("updated_at")
+
+  customField CustomField @relation(fields: [customFieldId], references: [id], onDelete: Cascade)
+  lead        leads       @relation(fields: [leadId], references: [id], onDelete: Cascade)
+
+  @@unique([customFieldId, leadId])
+  @@index([leadId])
+  @@map("custom_field_values")
+}
+
+// ============================================================
+// Lead sources & statuses — company-managed master data.
+// ============================================================
+
+model LeadSource {
+  id        Int      @id @default(autoincrement())
+  companyId Int      @map("company_id")
+  name      String
+  isActive  Boolean  @default(true) @map("is_active")
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  company Company @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  leads   leads[]
+
+  @@unique([companyId, name])
+  @@index([companyId])
+  @@map("lead_sources")
+}
+
+model LeadStatus {
+  id        Int      @id @default(autoincrement())
+  companyId Int      @map("company_id")
+  name      String
+  color     String?
+  order     Int      @default(0)
+  isDefault Boolean  @default(false) @map("is_default")
+  isClosed  Boolean  @default(false) @map("is_closed")
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  company Company @relation(fields: [companyId], references: [id], onDelete: Cascade)
+
+  @@unique([companyId, name])
+  @@index([companyId])
+  @@map("lead_statuses")
+}
+
+// ============================================================
+// Campaigns — marketing campaigns tied to landing pages / lead capture.
+// ============================================================
+
+model Campaign {
+  id            Int       @id @default(autoincrement())
+  companyId     Int       @map("company_id")
+  name          String
+  type          String    @default("landing_page") // landing_page | whatsapp | email | manual
+  status        String    @default("draft") // draft | active | paused | completed
+  landingPageId Int?      @map("landing_page_id")
+  budget        Decimal?  @db.Decimal(12, 2)
+  startDate     DateTime? @map("start_date")
+  endDate       DateTime? @map("end_date")
+  utmSource     String?   @map("utm_source")
+  utmMedium     String?   @map("utm_medium")
+  utmCampaign   String?   @map("utm_campaign")
+  createdBy     Int?      @map("created_by")
+  createdAt     DateTime  @default(now()) @map("created_at")
+  updatedAt     DateTime  @updatedAt @map("updated_at")
+
+  company     Company        @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  landingPage landing_pages? @relation(fields: [landingPageId], references: [id], onDelete: SetNull)
+  leads       leads[]
+
+  @@index([companyId])
+  @@index([companyId, status])
+  @@map("campaigns")
+}
+
+// ============================================================
+// Notifications — in-app notification center.
+// ============================================================
+
+model Notification {
+  id        Int       @id @default(autoincrement())
+  companyId Int?      @map("company_id")
+  userId    Int       @map("user_id")
+  title     String
+  message   String
+  type      String    @default("info") // info | success | warning | error | follow_up | lead_assigned
+  metadata  Json?
+  isRead    Boolean   @default(false) @map("is_read")
+  readAt    DateTime? @map("read_at")
+  createdAt DateTime  @default(now()) @map("created_at")
+
+  company Company? @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  user    User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, isRead])
+  @@index([companyId])
+  @@map("notifications")
+}
+
+// ============================================================
+// Settings — per-company key/value configuration store.
+// ============================================================
+
+model Setting {
+  id        Int      @id @default(autoincrement())
+  companyId Int      @map("company_id")
+  key       String
+  value     Json
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  company Company @relation(fields: [companyId], references: [id], onDelete: Cascade)
+
+  @@unique([companyId, key])
+  @@index([companyId])
+  @@map("settings")
+}
+
+// ============================================================
+// File assets — metadata for objects uploaded to object storage.
+// ============================================================
+
+model FileAsset {
+  id         Int      @id @default(autoincrement())
+  companyId  Int?     @map("company_id")
+  uploadedBy Int?     @map("uploaded_by")
+  leadId     Int?     @map("lead_id")
+  objectPath String   @map("object_path")
+  fileName   String   @map("file_name")
+  mimeType   String?  @map("mime_type")
+  sizeBytes  Int?     @map("size_bytes")
+  category   String   @default("general") // general | avatar | lead_attachment | poster | import
+  createdAt  DateTime @default(now()) @map("created_at")
+
+  company  Company? @relation(fields: [companyId], references: [id], onDelete: SetNull)
+  uploader User?    @relation(fields: [uploadedBy], references: [id], onDelete: SetNull)
+  lead     leads?   @relation(fields: [leadId], references: [id], onDelete: SetNull)
+
+  @@index([companyId])
+  @@index([leadId])
+  @@map("file_assets")
+}
+
+// ============================================================
+// Role & permission management.
+// ============================================================
+
+model Permission {
+  id          Int    @id @default(autoincrement())
+  key         String @unique
+  description String
+
+  rolePermissions RolePermission[]
+
+  @@map("permissions")
+}
+
+model RolePermission {
+  id           Int      @id @default(autoincrement())
+  companyId    Int?     @map("company_id") // null = platform default for the role
+  role         String
+  permissionId Int      @map("permission_id")
+  createdAt    DateTime @default(now()) @map("created_at")
+
+  company    Company?   @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  permission Permission @relation(fields: [permissionId], references: [id], onDelete: Cascade)
+
+  @@unique([companyId, role, permissionId])
+  @@index([companyId, role])
+  @@map("role_permissions")
+}
+
+// ============================================================
+// Provider configuration — pluggable third-party integrations.
+// Credentials are added later without changing application code.
+// ============================================================
+
+model ProviderConfig {
+  id           Int      @id @default(autoincrement())
+  companyId    Int?     @map("company_id") // null = platform-wide default
+  providerType String   @map("provider_type") // ai_calling | whatsapp | payments | image_generation
+  provider     String // e.g. "twilio", "cashfree", "razorpay", "stability_ai"
+  isEnabled    Boolean  @default(false) @map("is_enabled")
+  config       Json? // non-secret configuration (secrets live in env vars, referenced by key name here)
+  createdAt    DateTime @default(now()) @map("created_at")
+  updatedAt    DateTime @updatedAt @map("updated_at")
+
+  company Company? @relation(fields: [companyId], references: [id], onDelete: Cascade)
+
+  @@unique([companyId, providerType])
+  @@index([companyId])
+  @@map("provider_configs")
+}
+
+model whatsapp_campaigns {
+  id             Int     @id @default(autoincrement())
+  name           String? @db.VarChar(255)
+  templatename   String? @db.VarChar(255)
+  templatebody   String?
+  targetaudience String? @db.VarChar(255)
+  status         String? @db.VarChar(255)
+  sentcount      Int?
+  deliveredcount Int?
+  readcount      Int?
+  repliedcount   Int?
+  scheduledtime  BigInt?
+  timestamp      BigInt?
+}
+
+model whatsapp_chats {
+  id               Int      @id @default(autoincrement())
+  contactname      String?  @db.VarChar(255)
+  contactphone     String?  @db.VarChar(255)
+  lastmessage      String?
+  lastmessagetime  BigInt?
+  assignedtoagent  String?  @db.VarChar(255)
+  tags             String?
+  pipelinestatus   String?  @db.VarChar(255)
+  ischatbotenabled Boolean?
+  unreadcount      Int?
+  leadid           Int?
+}
+
+model whatsapp_knowledge_base {
+  id        Int      @id @default(autoincrement())
+  title     String?  @db.VarChar(255)
+  type      String?  @db.VarChar(255)
+  content   String?
+  istrained Boolean?
+  timestamp BigInt?
+}
+
+model whatsapp_messages {
+  id        Int     @id @default(autoincrement())
+  chatid    Int?
+  sender    String? @db.VarChar(255)
+  text      String?
+  timestamp BigInt?
+  status    String? @db.VarChar(255)
+}
+
+model whatsapp_providers {
+  id           Int      @id @default(autoincrement())
+  providername String?  @db.VarChar(255)
+  apikey       String?
+  authtoken    String?
+  clientid     String?  @db.VarChar(255)
+  clientsecret String?
+  phonenumber  String?  @db.VarChar(255)
+  webhookurl   String?
+  isconnected  Boolean?
+  createdat    BigInt?
+  businessname String?  @db.VarChar(255)
+  lastsynctime BigInt?
+  healthstatus String?  @db.VarChar(255)
+}
+
+model whatsapp_templates {
+  id              Int     @id @default(autoincrement())
+  name            String? @db.VarChar(255)
+  category        String? @db.VarChar(255)
+  language        String? @db.VarChar(255)
+  body            String?
+  status          String? @db.VarChar(255)
+  rejectionreason String?
+  createdat       BigInt?
+}

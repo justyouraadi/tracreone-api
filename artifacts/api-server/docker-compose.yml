@@ -1,0 +1,48 @@
+# Local/production container orchestration for the Tracre One API.
+# The Postgres database itself is external/managed and is NOT started here —
+# only the API, its background worker, and Redis (used for BullMQ queues).
+services:
+  api:
+    build:
+      context: ../..
+      dockerfile: artifacts/api-server/Dockerfile
+    ports:
+      - "8080:8080"
+    environment:
+      PORT: "8080"
+      NODE_ENV: production
+      DB_HOST: ${DB_HOST}
+      DB_PORT: ${DB_PORT}
+      DB_NAME: ${DB_NAME}
+      DB_USER: ${DB_USER}
+      DB_PASSWORD: ${DB_PASSWORD}
+      SESSION_SECRET: ${SESSION_SECRET}
+      REDIS_URL: redis://redis:6380
+    depends_on:
+      - redis
+
+  worker:
+    build:
+      context: ../..
+      dockerfile: artifacts/api-server/Dockerfile.worker
+    environment:
+      NODE_ENV: production
+      DB_HOST: ${DB_HOST}
+      DB_PORT: ${DB_PORT}
+      DB_NAME: ${DB_NAME}
+      DB_USER: ${DB_USER}
+      DB_PASSWORD: ${DB_PASSWORD}
+      SESSION_SECRET: ${SESSION_SECRET}
+      REDIS_URL: redis://redis:6380
+    depends_on:
+      - redis
+
+  redis:
+    image: redis:7-alpine
+    ports:
+      - "6380:6379"
+    volumes:
+      - redis-data:/data
+
+volumes:
+  redis-data:

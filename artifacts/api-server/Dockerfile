@@ -4,7 +4,7 @@ RUN corepack enable
 WORKDIR /repo
 
 FROM base AS deps
-COPY pnpm-workspace.yaml package.json pnpm-lock.yaml* ./
+COPY pnpm-workspace.yaml package.json tsconfig.base.json ./
 COPY artifacts/api-server ./artifacts/api-server
 RUN pnpm install --no-frozen-lockfile --ignore-scripts
 

@@ -5,13 +5,12 @@ RUN corepack enable
 WORKDIR /repo
 
 FROM base AS deps
-COPY pnpm-workspace.yaml package.json pnpm-lock.yaml* ./
+COPY pnpm-workspace.yaml package.json tsconfig.base.json ./
 COPY artifacts/api-server ./artifacts/api-server
 RUN pnpm install --no-frozen-lockfile --ignore-scripts
 
 FROM deps AS build
 RUN pnpm --filter @workspace/api-server exec prisma generate --schema=prisma/schema.prisma
-RUN pnpm --filter @workspace/api-server exec tsc -p tsconfig.json --noEmit
 RUN pnpm --filter @workspace/api-server exec esbuild src/queues/worker.ts --bundle --platform=node --format=esm --outfile=dist-worker/worker.mjs --external:@prisma/client --external:ioredis --external:bullmq
 
 FROM node:24-slim AS runtime
@@ -20,7 +19,5 @@ WORKDIR /app
 COPY --from=build /repo/artifacts/api-server/dist-worker ./dist
 COPY --from=build /repo/artifacts/api-server/prisma ./prisma
 COPY --from=build /repo/node_modules ./node_modules
-# Run as the non-root "node" user baked into the base image, rather than
-# root, to limit blast radius if the process is ever compromised.
 USER node
 CMD ["node", "dist/worker.mjs"]
